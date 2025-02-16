@@ -1,9 +1,12 @@
 package com.DDN.service;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import com.DDN.entity.Booking;
@@ -27,6 +30,9 @@ public class BookingServiceImpl implements BookingService {
         @Autowired
         private FlightService flightService;
 
+        @Autowired
+        private KafkaTemplate<String, String> kafkaTemplate;
+
         @Override
         public String reserveSeats(BookingRequest bookingRequest) {
                 log.info("create Booking for user {}", bookingRequest.getPassengerName());
@@ -44,6 +50,9 @@ public class BookingServiceImpl implements BookingService {
                                 .build();
 
                 bookingRepository.save(booking);
+
+                // Map<String,String> notification = new HashMap<>();
+                // notification.put
 
                 log.info("booking status is {} ", booking.getStatus());
 

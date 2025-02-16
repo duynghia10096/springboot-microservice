@@ -1,25 +1,30 @@
 package com.DDN.service;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import com.DDN.entity.Booking;
 import com.DDN.entity.BookingStatus;
 import com.DDN.entity.FlightBooking;
-import com.DDN.exception.BookingException;
+
 import com.DDN.external.client.FlightService;
-import com.DDN.external.client.PaymentService;
-import com.DDN.external.request.PaymentRequest;
+// import com.DDN.external.client.PaymentService;
+
 import com.DDN.model.BookingRequest;
 import com.DDN.model.BookingResponse;
 import com.DDN.model.FlightBookingRequest;
 import com.DDN.model.FlightBookingResponse;
 import com.DDN.repository.FlightBookingRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FlightBookingService implements BookingService {
 
-    // @Autowired
+    @Autowired
     private FlightBookingRepository flightBookingRepository;
 
     @Autowired
@@ -39,7 +44,10 @@ public class FlightBookingService implements BookingService {
     private FlightService flightService;
 
     @Autowired
-    private PaymentService paymentService;
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    // @Autowired
+    // private PaymentService paymentService;
 
     // private final WebClient webClient;
 
@@ -56,26 +64,36 @@ public class FlightBookingService implements BookingService {
 
         log.info("create Booking for user {}", bookingRequest.getPassengerName());
 
-         PaymentRequest paymentRequest = PaymentRequest
-                                .builder()
-                                .bookingId(flightBooking.getId())
-                                .amount(flightBooking.getAmount())
-                                .paymentMode(flightBooking.getPaymentMode())
-                                .build();
+        // PaymentRequest paymentRequest = PaymentRequest
+        // .builder()
+        // .bookingId(flightBooking.getId())
+        // .amount(flightBooking.getAmount())
+        // .paymentMode(flightBooking.getPaymentMode())
+        // .build();
 
-        Long paymentId = paymentService.processFlightPayment(paymentRequest);
-        
-        if(paymentId != null) {
-            log.info("Successful Payment!!!");
-        } else {
-            throw new BookingException("Payment is failed",
-                "Failed",
-                500);
-        }
+        // Long paymentId = paymentService.processFlightPayment(paymentRequest);
+
+        // if(paymentId != null) {
+        // log.info("Successful Payment!!!");
+        // } else {
+        // throw new BookingException("Payment is failed",
+        // "Failed",
+        // 500);
+        // }
         // save the details
         flightBooking = flightBookingRepository.save(flightBooking);
 
         log.info("booking status is {} ", flightBooking.getStatus());
+
+        try {
+            Map<String, String> notification = new HashMap();
+            notification.put("customerName", flightBooking.getPassengerName());
+            notification.put("email", flightBooking.getEmail());
+            notification.put("flightNumber", flightBooking.getFlightNumber());
+            kafkaTemplate.send("booking-notification", new ObjectMapper().writeValueAsString(notification));
+        } catch (JsonProcessingException e) {
+            e.printStackTrace(); // Xử lý ngoại lệ hoặc ghi log lỗi
+        }
 
         // check for seat availability and reduce the seats for flight
         flightService.reserveSeats(flightBooking.getFlightNumber(),
@@ -95,7 +113,7 @@ public class FlightBookingService implements BookingService {
 
         flightBooking.setBookingNumber(UUID.randomUUID().toString());
         flightBooking.setFlightNumber(flightBookingRequest.getFlightNumber());
-
+        flightBooking.setEmail(bookingRequest.getEmail());
         flightBooking.setBookingDate(LocalDate.now());
         flightBooking.setPassengerName(flightBookingRequest.getPassengerName());
 

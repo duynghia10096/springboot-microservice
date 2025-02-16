@@ -22,6 +22,7 @@ public class Booking {
 
     private String bookingNumber;
     private String passengerName;
+    private String email;
     private String status;
     private double amount;
     private String paymentMode;
