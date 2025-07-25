@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: flight-service
-        image: duynghia1009/flight-service:latest
+        image: duynghia1009/flight-service:${imageTag}
         ports:
         - containerPort: 8082
